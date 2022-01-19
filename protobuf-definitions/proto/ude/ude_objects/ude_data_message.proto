@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+package ude_objects;
+
+message UDEDataMessageProto {
+  bytes data = 1;
+}

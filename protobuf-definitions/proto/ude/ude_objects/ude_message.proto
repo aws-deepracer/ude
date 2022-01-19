@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+import "ude/ude_objects/ude_side_channel_message.proto";
+import "ude/ude_objects/ude_empty_message.proto";
+import "ude/ude_objects/ude_data_message.proto";
+
+package ude_objects;
+
+enum UDEMessageTypeProto {
+  EMPTY = 0;
+  CHANNEL = 1;
+  DATA = 2;
+}
+
+message UDEMessageHeaderProto {
+  int32 status = 1;
+  string message = 2;
+}
+
+message UDEMessageProto {
+  UDEMessageHeaderProto header = 1;
+
+  oneof msg {
+    UDEEmptyMessageProto emptyMsg = 2;
+    UDESideChannelMessageProto sideChannelMsg = 3;
+    UDEDataMessageProto dataMsg = 4;
+  }
+}

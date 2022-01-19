@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+import "ude/ude_objects/ude_message.proto";
+
+package ude_objects;
+
+service UDEProto {
+  rpc step(UDEMessageProto) returns (UDEMessageProto) {}
+  rpc reset(UDEMessageProto) returns (UDEMessageProto) {}
+  rpc close(UDEMessageProto) returns (UDEMessageProto) {}
+  rpc observation_space(UDEMessageProto) returns (UDEMessageProto) {}
+  rpc action_space(UDEMessageProto) returns (UDEMessageProto) {}
+
+  rpc side_channel_send(UDEMessageProto) returns (UDEMessageProto) {}
+  rpc side_channel_stream(UDEMessageProto) returns (stream UDEMessageProto) {}
+}

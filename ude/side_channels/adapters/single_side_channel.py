@@ -1,0 +1,41 @@
+#################################################################################
+#   Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.          #
+#                                                                               #
+#   Licensed under the Apache License, Version 2.0 (the "License").             #
+#   You may not use this file except in compliance with the License.            #
+#   You may obtain a copy of the License at                                     #
+#                                                                               #
+#       http://www.apache.org/licenses/LICENSE-2.0                              #
+#                                                                               #
+#   Unless required by applicable law or agreed to in writing, software         #
+#   distributed under the License is distributed on an "AS IS" BASIS,           #
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.    #
+#   See the License for the specific language governing permissions and         #
+#   limitations under the License.                                              #
+#################################################################################
+"""A class for Single Side Channel."""
+from ude.side_channels.ude_side_channel import AbstractSideChannel
+from ude.ude_typing import SideChannelData
+
+
+class SingleSideChannel(AbstractSideChannel):
+    """
+    SingleSideChannel to be used for Environment running in same process as UDE.
+    """
+    def __init__(self):
+        """
+        Initialize SingleSideChannel
+        """
+        super().__init__()
+
+    def _send(self, key: str, value: SideChannelData, store_local: bool = False) -> None:
+        """
+        Send the side channel message.
+        SingleSideChannel just notifies observers when any message is sent!
+
+        Args:
+            key (str): The string identifier of message
+            value (SideChannelData): The data of the message.
+            store_local (bool, optional): The flag whether to store locally or not.
+        """
+        self.notify(key=key, value=value)

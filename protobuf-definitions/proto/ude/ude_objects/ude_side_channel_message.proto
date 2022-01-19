@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package ude_objects;
+
+enum UDEChannelDataTypeProto {
+  BOOLEAN = 0;
+  INT = 1;
+  FLOAT = 2;
+  FLOAT_LIST = 3;
+  STRING = 4;
+}
+
+message UDEBoolDataProto {
+  bool val = 1;
+}
+
+message UDEFloatDataProto {
+  float val = 1;
+}
+
+message UDEFloatListDataProto {
+  repeated float val = 1;
+}
+
+message UDEIntDataProto {
+  int32 val = 1;
+}
+
+message UDEStringDataProto {
+  string val = 1;
+}
+
+message UDEBytesDataProto {
+  bytes val = 1;
+}
+
+message UDESideChannelMessageProto {
+  string key = 1;
+  bool store_local = 2;
+  oneof data {
+     UDEBoolDataProto boolVal = 3;
+     UDEIntDataProto intVal = 4;
+     UDEFloatDataProto floatVal = 5;
+     UDEFloatListDataProto floatListVal = 6;
+     UDEStringDataProto stringVal = 7;
+     UDEBytesDataProto bytesVal = 8;
+  }
+
+}
+

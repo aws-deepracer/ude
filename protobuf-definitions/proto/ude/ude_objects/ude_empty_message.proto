@@ -1,0 +1,6 @@
+syntax = "proto3";
+
+package ude_objects;
+
+message UDEEmptyMessageProto {
+}
