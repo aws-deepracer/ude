@@ -40,7 +40,7 @@ package_name = "ude"
 required_packages = [
     "setuptools",
     "numpy>=1.20.0",
-    "pyarrow<=0.17.1",
+    "pyarrow==3.0.0",
     "grpcio>=1.35.0",
     "mypy-protobuf>=2.2",
     "gym>=0.18.0",
@@ -67,6 +67,8 @@ setup_args = {
         "Natural Language :: English",
         "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Python",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
     ],
     "install_requires": required_packages,
