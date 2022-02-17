@@ -44,6 +44,9 @@ required_packages = [
     "grpcio>=1.35.0",
     "mypy-protobuf>=2.2",
     "gym>=0.18.0",
+]
+
+test_required_packages = [
     "flake8>=3.5,<4.0.0",
     "pytest-flake8==1.0.7",
     "pytest-pep257==0.0.5",
@@ -70,8 +73,10 @@ setup_args = {
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
     ],
     "install_requires": required_packages,
+    "tests_require": test_required_packages,
 }
 
 try:
