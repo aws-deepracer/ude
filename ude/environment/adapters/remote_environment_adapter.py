@@ -14,7 +14,7 @@
 #   limitations under the License.                                              #
 #################################################################################
 """A class for Remove Environment Adapter."""
-from typing import Optional, Dict, List, Tuple, Any
+from typing import Optional, Dict, List, Tuple, Any, Union
 
 from ude.environment.interfaces import UDEEnvironmentAdapterInterface
 from ude.communication.ude_client import UDEClient
@@ -35,7 +35,8 @@ class RemoteEnvironmentAdapter(UDEEnvironmentAdapterInterface):
                  port: Optional[int] = None,
                  options: Optional[List[Tuple[str, Any]]] = None,
                  compression: Compression = Compression.NoCompression,
-                 credentials: ChannelCredentials = None,
+                 credentials: Optional[Union[str, bytes, ChannelCredentials]] = None,
+                 auth_key: Optional[str] = None,
                  timeout: float = 10.0,
                  max_retry_attempts: int = 5):
         """
@@ -48,8 +49,9 @@ class RemoteEnvironmentAdapter(UDEEnvironmentAdapterInterface):
                                                         (:term:`channel_arguments` in gRPC runtime)
                                                         to configure the channel.
             compression (Compression) = channel compression type (default: NoCompression)
-            credentials (Optional[ChannelCredentials]): grpc.ChannelCredentials for use with
-                                                          an SSL-enabled Channel.
+            credentials: Optional[Union[str, bytes, ChannelCredentials]]: grpc.ChannelCredentials, the path to
+                certificate file or bytes of the certificate to use with an SSL-enabled Channel.
+            auth_key (Optional[str]): channel authentication key (only applied when credentials are provided).
             timeout (float): the time-out of grpc.io call
             max_retry_attempts (int): maximum number of retry
         """
@@ -59,6 +61,7 @@ class RemoteEnvironmentAdapter(UDEEnvironmentAdapterInterface):
                                  options=options,
                                  compression=compression,
                                  credentials=credentials,
+                                 auth_key=auth_key,
                                  timeout=timeout,
                                  max_retry_attempts=max_retry_attempts)
 

@@ -14,7 +14,7 @@
 #   limitations under the License.                                              #
 #################################################################################
 from unittest import TestCase
-from unittest.mock import patch, MagicMock, ANY, PropertyMock
+from unittest.mock import patch, MagicMock, ANY, PropertyMock, call
 
 from ude.ude_objects.ude_message_pb2 import (
     UDEMessageProto,
@@ -706,26 +706,27 @@ class UDEServerTest(TestCase):
         ude_env_mock = MagicMock()
 
         custom_option = [('test', 42)]
-        credentials = MagicMock()
-        server = UDEServer(ude_env=ude_env_mock,
-                           step_invoke_type=UDEStepInvokeType.PERIODIC,
-                           step_invoke_period=42.42,
-                           num_agents=42,
-                           options=custom_option,
-                           compression=grpc.Compression.Gzip,
-                           credentials=credentials,
-                           port=4242,
-                           timeout_wait=42.4242)
+        credentials = (MagicMock(), MagicMock())
+        with patch("grpc.ssl_server_credentials") as ssl_server_credential_mock:
+            server = UDEServer(ude_env=ude_env_mock,
+                               step_invoke_type=UDEStepInvokeType.PERIODIC,
+                               step_invoke_period=42.42,
+                               num_agents=42,
+                               options=custom_option,
+                               compression=grpc.Compression.Gzip,
+                               credentials=credentials,
+                               port=4242,
+                               timeout_wait=42.4242)
 
-        assert server.step_invoke_type == UDEStepInvokeType.PERIODIC
-        assert server.step_invoke_period == 42.42
-        assert server.num_agent == 42
-        assert server.port == 4242
-        assert server.options == self._default_options + custom_option
-        assert server.compression == grpc.Compression.Gzip
-        assert server.credentials == credentials
-        assert server.timeout_wait == 42.4242
-        assert not server.is_open
+            assert server.step_invoke_type == UDEStepInvokeType.PERIODIC
+            assert server.step_invoke_period == 42.42
+            assert server.num_agent == 42
+            assert server.port == 4242
+            assert server.options == self._default_options + custom_option
+            assert server.compression == grpc.Compression.Gzip
+            assert server.credentials == ssl_server_credential_mock.return_value
+            assert server.timeout_wait == 42.4242
+            assert not server.is_open
 
     def test_initialize_add_insecure_port_error(self, grpc_server_mock, socket_mock):
         ude_env_mock = MagicMock()
@@ -765,6 +766,7 @@ class UDEServerTest(TestCase):
         assert ret_server == server
         assert server.is_open
         grpc_server_mock.assert_called_once_with(ANY,
+                                                 interceptors=None,
                                                  options=self._default_options,
                                                  compression=grpc.Compression.NoCompression)
         grpc_server_mock.return_value.add_insecure_port.assert_called_once()
@@ -791,6 +793,7 @@ class UDEServerTest(TestCase):
         assert ret_server == server
         assert server.is_open
         grpc_server_mock.assert_called_once_with(ANY,
+                                                 interceptors=None,
                                                  options=self._default_options,
                                                  compression=grpc.Compression.Gzip)
         grpc_server_mock.return_value.add_insecure_port.assert_called_once()
@@ -820,6 +823,7 @@ class UDEServerTest(TestCase):
 
         expected_options = self._default_options + custom_option
         grpc_server_mock.assert_called_once_with(ANY,
+                                                 interceptors=None,
                                                  options=expected_options,
                                                  compression=grpc.Compression.NoCompression)
         grpc_server_mock.return_value.add_insecure_port.assert_called_once()
@@ -827,32 +831,114 @@ class UDEServerTest(TestCase):
 
     def test_start_with_credentials(self, grpc_server_mock, socket_mock):
         ude_env_mock_obj = MagicMock()
-        credentials = MagicMock()
+        credentials = (MagicMock(), MagicMock())
+        with patch("grpc.ssl_server_credentials") as ssl_server_credential_mock:
+            server = UDEServer(ude_env=ude_env_mock_obj,
+                               credentials=credentials)
 
-        server = UDEServer(ude_env=ude_env_mock_obj,
-                           credentials=credentials)
+            assert server.step_invoke_type == UDEStepInvokeType.WAIT_FOREVER
+            assert server.step_invoke_period == 120.0
+            assert server.num_agent == 1
+            assert server.port == UDE_COMM_DEFAULT_PORT
+            assert server.timeout_wait == 60.0
+            assert server.env == ude_env_mock_obj
+            assert server.side_channel == ude_env_mock_obj.side_channel
+            assert server.options == self._default_options
+            assert server.compression == grpc.Compression.NoCompression
+            assert server.credentials == ssl_server_credential_mock.return_value
+            assert not server.is_open
 
-        assert server.step_invoke_type == UDEStepInvokeType.WAIT_FOREVER
-        assert server.step_invoke_period == 120.0
-        assert server.num_agent == 1
-        assert server.port == UDE_COMM_DEFAULT_PORT
-        assert server.timeout_wait == 60.0
-        assert server.env == ude_env_mock_obj
-        assert server.side_channel == ude_env_mock_obj.side_channel
-        assert server.options == self._default_options
-        assert server.compression == grpc.Compression.NoCompression
-        assert server.credentials == credentials
-        assert not server.is_open
+            ret_server = server.start()
+            assert ret_server == server
+            assert server.is_open
 
-        ret_server = server.start()
-        assert ret_server == server
-        assert server.is_open
+            grpc_server_mock.assert_called_once_with(ANY,
+                                                     interceptors=None,
+                                                     options=self._default_options,
+                                                     compression=grpc.Compression.NoCompression)
+            grpc_server_mock.return_value.add_secure_port.assert_called_once()
+            grpc_server_mock.return_value.start.assert_called_once()
 
-        grpc_server_mock.assert_called_once_with(ANY,
-                                                 options=self._default_options ,
-                                                 compression=grpc.Compression.NoCompression)
-        grpc_server_mock.return_value.add_secure_port.assert_called_once()
-        grpc_server_mock.return_value.start.assert_called_once()
+    def test_start_with_credentials_and_auth_key(self, grpc_server_mock, socket_mock):
+        ude_env_mock_obj = MagicMock()
+        credentials = (MagicMock(), MagicMock())
+        auth_key = "my_pass"
+        with patch("grpc.ssl_server_credentials") as ssl_server_credential_mock, \
+             patch("ude.communication.ude_server.AuthInterceptor") as auth_interceptor_mock:
+            server = UDEServer(ude_env=ude_env_mock_obj,
+                               credentials=credentials,
+                               auth_key=auth_key)
+
+            assert server.step_invoke_type == UDEStepInvokeType.WAIT_FOREVER
+            assert server.step_invoke_period == 120.0
+            assert server.num_agent == 1
+            assert server.port == UDE_COMM_DEFAULT_PORT
+            assert server.timeout_wait == 60.0
+            assert server.env == ude_env_mock_obj
+            assert server.side_channel == ude_env_mock_obj.side_channel
+            assert server.options == self._default_options
+            assert server.compression == grpc.Compression.NoCompression
+            assert server.credentials == ssl_server_credential_mock.return_value
+            assert not server.is_open
+
+            ret_server = server.start()
+            assert ret_server == server
+            assert server.is_open
+
+            auth_interceptor_mock.assert_called_once_with(key=auth_key)
+            grpc_server_mock.assert_called_once_with(ANY,
+                                                     interceptors=(auth_interceptor_mock.return_value, ),
+                                                     options=self._default_options,
+                                                     compression=grpc.Compression.NoCompression)
+            grpc_server_mock.return_value.add_secure_port.assert_called_once()
+            grpc_server_mock.return_value.start.assert_called_once()
+
+    def test_to_server_credentials_file_path(self, grpc_server_mock, socket_mock):
+        with patch("grpc.ssl_server_credentials") as ssl_server_credentials_mock, \
+             patch("builtins.open") as open_mock, \
+             patch("os.path.isfile") as is_file_mock:
+            private_key_filepath = "/private_key"
+            cert_filepath = "cert_file"
+            credentials = (private_key_filepath, cert_filepath)
+            is_file_mock.return_value = True
+            server_credential = UDEServer.to_server_credentials(credentials)
+
+            assert open_mock.call_count == 2
+            open_mock.assert_has_calls([
+                call(private_key_filepath, 'rb'),
+                call(cert_filepath, 'rb')
+            ], any_order=True)
+            assert open_mock.return_value.__enter__.return_value.read.call_count == 2
+            file_data_mock = open_mock.return_value.__enter__.return_value.read.return_value
+            credential_pair = ((file_data_mock, file_data_mock), )
+            ssl_server_credentials_mock.assert_called_once_with(credential_pair)
+            assert server_credential == ssl_server_credentials_mock.return_value
+
+    def test_to_server_credentials_bytes(self, grpc_server_mock, socket_mock):
+        with patch("grpc.ssl_server_credentials") as ssl_server_credentials_mock, \
+             patch("builtins.open") as open_mock, \
+             patch("os.path.isfile") as is_file_mock:
+            private_key_data = "private_key_data"
+            cert_data = "cert_data"
+            credentials = (private_key_data, cert_data)
+            is_file_mock.return_value = False
+            server_credential = UDEServer.to_server_credentials(credentials)
+
+            open_mock.assert_not_called()
+            credential_pair = ((private_key_data, cert_data),)
+            ssl_server_credentials_mock.assert_called_once_with(credential_pair)
+            assert server_credential == ssl_server_credentials_mock.return_value
+
+    def test_to_server_credentials_server_credentials(self, grpc_server_mock, socket_mock):
+        with patch("grpc.ssl_server_credentials") as ssl_server_credentials_mock, \
+             patch("builtins.open") as open_mock, \
+             patch("os.path.isfile") as is_file_mock:
+            credentials = grpc.ServerCredentials(MagicMock())
+            server_credential = UDEServer.to_server_credentials(credentials)
+
+            open_mock.assert_not_called()
+
+            assert credentials == server_credential
 
     def test_check_port_on_linux(self, grpc_server_mock, socket_mock):
         with patch("ude.communication.ude_server.platform", "linux"):

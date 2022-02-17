@@ -16,17 +16,20 @@
 """A class for UDE Server."""
 from copy import deepcopy
 import grpc
+import logging
+import os
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 import socket
 from sys import platform
 from threading import Event, RLock
 import threading
-from typing import Union, Dict, Optional, List, Tuple, Any
+from typing import Union, Dict, Optional, List, Tuple, Any, Iterable
 import traceback
 import sys
 
 from ude.serialization_context import UDESerializationContext
+from ude.communication.grpc_auth_interceptor import AuthInterceptor
 
 from ude.ude_objects.ude_pb2_grpc import (
     UDEProtoServicer,
@@ -318,7 +321,8 @@ class UDEServer(SideChannelObserverInterface):
                  port: Optional[int] = None,
                  options: Optional[List[Tuple[str, Any]]] = None,
                  compression: Compression = Compression.NoCompression,
-                 credentials: Optional[ServerCredentials] = None,
+                 credentials: Optional[Union[ServerCredentials, Iterable[str], Iterable[bytes]]] = None,
+                 auth_key: Optional[str] = None,
                  timeout_wait: Union[int, float] = 60.0,
                  max_workers: int = sys.maxsize,
                  **kwargs):
@@ -335,8 +339,10 @@ class UDEServer(SideChannelObserverInterface):
                                                         (:term:`channel_arguments` in gRPC runtime)
                                                         to configure the channel.
             compression (Compression) = channel compression type (default: NoCompression)
-            credentials (Optional[ServerCredentials]): grpc.ServerCredentials to use with
-                                                                an SSL-enabled grpc Server.
+            credentials (Optional[Union[ServerCredentials, Iterable[str], Iterable[bytes]]]): grpc.ServerCredentials,
+                the path to certificate private key and body/chain file, or bytes of the certificate private
+                key and body/chain to use with an SSL-enabled Channel.
+            auth_key (Optional[str]): channel authentication key (only applied when credentials are provided).
             timeout_wait (Union[int, float]): the maximum wait time to respond step request to UDE clients.
             max_workers (int): the maximum number of grpc.io server threads (This must be larger than num_agents.).
             kwargs: Arbitrary keyword arguments for grpc.server
@@ -357,7 +363,8 @@ class UDEServer(SideChannelObserverInterface):
         options.update(custom_options)
         self._options = [(item[0], item[1]) for item in options.items()]
         self._compression = compression
-        self._credentials = credentials
+        self._credentials = UDEServer.to_server_credentials(credentials=credentials)
+        self._auth_key = auth_key
         self._kwargs = kwargs
 
         self._timeout_wait = timeout_wait
@@ -383,6 +390,32 @@ class UDEServer(SideChannelObserverInterface):
         self._invoke_step_event_lock = RLock()
         self._invoke_step_thread = None
         self._should_stop_invoke_step_thread = False
+
+    @staticmethod
+    def to_server_credentials(credentials: Optional[Union[ServerCredentials,
+                                                          Iterable[str],
+                                                          Iterable[bytes]]]) -> ServerCredentials:
+        """
+        Convert given argument to grpc server credentials.
+
+        Args:
+            credentials (Optional[Union[ServerCredentials, Iterable[str], Iterable[bytes]]]): grpc.ServerCredentials,
+                the path to certificate private key and body/chain file, or bytes of the certificate private
+                key and body/chain to use with an SSL-enabled Channel.
+
+        Returns:
+            ServerCredentials: converted server credential.
+        """
+        if credentials and not isinstance(credentials, ServerCredentials):
+            private_key, cert = credentials
+            if os.path.isfile(private_key):
+                with open(private_key, 'rb') as f:
+                    private_key = f.read()
+            if os.path.isfile(cert):
+                with open(cert, 'rb') as f:
+                    cert = f.read()
+            credentials = grpc.ssl_server_credentials(((private_key, cert), ))
+        return credentials
 
     @property
     def env(self) -> UDEEnvironment:
@@ -504,6 +537,16 @@ class UDEServer(SideChannelObserverInterface):
             ServerCredentials: the grpc.ServerCredentials.
         """
         return self._credentials
+
+    @property
+    def auth_key(self) -> str:
+        """
+        Return the authentication key
+
+        Returns:
+            str: the channel authentication key
+        """
+        return self._auth_key
 
     @property
     def is_open(self) -> bool:
@@ -733,7 +776,11 @@ class UDEServer(SideChannelObserverInterface):
 
         try:
             # Establish communication grpc
+            interceptors = None
+            if self._credentials and self._auth_key:
+                interceptors = (AuthInterceptor(key=self._auth_key),)
             self._server = grpc.server(ThreadPoolExecutor(max_workers=self._max_workers),
+                                       interceptors=interceptors,
                                        options=self._options,
                                        compression=self._compression,
                                        **self._kwargs)
@@ -768,7 +815,7 @@ class UDEServer(SideChannelObserverInterface):
             # On linux, the port remains unusable for TIME_WAIT=60 seconds after closing
             # SO_REUSEADDR frees the port right after closing the environment
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            print("platform:", platform)
+            logging.info("platform: {}".format(platform))
         try:
             s.bind(("localhost", port))
         except socket.error:

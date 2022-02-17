@@ -34,6 +34,7 @@ class RemoteEnvironmentAdapterTest(TestCase):
                                                 options=None,
                                                 compression=grpc.Compression.NoCompression,
                                                 credentials=None,
+                                                auth_key=None,
                                                 timeout=10.0,
                                                 max_retry_attempts=5)
 
@@ -48,6 +49,7 @@ class RemoteEnvironmentAdapterTest(TestCase):
                                                 options=None,
                                                 compression=grpc.Compression.NoCompression,
                                                 credentials=None,
+                                                auth_key=None,
                                                 timeout=5.0,
                                                 max_retry_attempts=4)
 
@@ -60,6 +62,7 @@ class RemoteEnvironmentAdapterTest(TestCase):
                                                 options=None,
                                                 compression=grpc.Compression.Gzip,
                                                 credentials=None,
+                                                auth_key=None,
                                                 timeout=10.0,
                                                 max_retry_attempts=5)
 
@@ -72,6 +75,7 @@ class RemoteEnvironmentAdapterTest(TestCase):
                                                 options=custom_option,
                                                 compression=grpc.Compression.NoCompression,
                                                 credentials=None,
+                                                auth_key=None,
                                                 timeout=10.0,
                                                 max_retry_attempts=5)
 
@@ -84,6 +88,22 @@ class RemoteEnvironmentAdapterTest(TestCase):
                                                 options=None,
                                                 compression=grpc.Compression.NoCompression,
                                                 credentials=credentials,
+                                                auth_key=None,
+                                                timeout=10.0,
+                                                max_retry_attempts=5)
+
+    def test_initialize_with_credentials_and_auth_key(self, ude_client_mock):
+        address = "localhost"
+        credentials = MagicMock()
+        auth_key = "my_pass"
+        adapter = RemoteEnvironmentAdapter(address=address,
+                                           credentials=credentials,
+                                           auth_key=auth_key)
+        ude_client_mock.assert_called_once_with(address=address, port=None,
+                                                options=None,
+                                                compression=grpc.Compression.NoCompression,
+                                                credentials=credentials,
+                                                auth_key=auth_key,
                                                 timeout=10.0,
                                                 max_retry_attempts=5)
 

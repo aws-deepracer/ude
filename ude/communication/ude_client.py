@@ -17,11 +17,13 @@
 from copy import deepcopy
 from enum import Enum
 import grpc
+import os
 import logging
 import threading
 from typing import Optional, Union, Any, Dict, cast, List, Tuple
 
 from ude.serialization_context import UDESerializationContext
+from ude.communication.grpc_auth import GrpcAuth
 import ude.ude_objects.ude_pb2_grpc as rpc
 from ude.ude_objects.ude_empty_message_pb2 import UDEEmptyMessageProto
 from ude.ude_objects.ude_message_pb2 import (
@@ -66,7 +68,8 @@ class UDEClient(AbstractSideChannel):
     def __init__(self, address: str, port: Optional[int] = None,
                  options: Optional[List[Tuple[str, Any]]] = None,
                  compression: Compression = Compression.NoCompression,
-                 credentials: ChannelCredentials = None,
+                 credentials: Optional[Union[str, bytes, ChannelCredentials]] = None,
+                 auth_key: Optional[str] = None,
                  timeout: float = 10.0,
                  max_retry_attempts: int = 5):
         """
@@ -79,8 +82,9 @@ class UDEClient(AbstractSideChannel):
                                                         (:term:`channel_arguments` in gRPC runtime)
                                                         to configure the channel.
             compression (Compression): channel compression type (default: NoCompression)
-            credentials (Optional[ChannelCredentials]): grpc.ChannelCredentials for use with
-                                                          an SSL-enabled Channel.
+            credentials: Optional[Union[str, bytes, ChannelCredentials]]: grpc.ChannelCredentials, the path to
+                certificate file or bytes of the certificate to use with an SSL-enabled Channel.
+            auth_key (Optional[str]): channel authentication key (only applied when credentials are provided).
             timeout (float): the time-out of grpc.io call
             max_retry_attempts (int): maximum number of retry
         """
@@ -102,13 +106,33 @@ class UDEClient(AbstractSideChannel):
         options.update(custom_options)
         self._options = [(item[0], item[1]) for item in options.items()]
         self._compression = compression
-        self._credentials = credentials
+        self._credentials = UDEClient.to_channel_credentials(credentials=credentials)
+        self._auth_key = auth_key
 
         self._should_stop_receiver_thread = False
         self._channel = None
         self._conn = None
         self._receiver_thread = None
         self._connect()
+
+    @staticmethod
+    def to_channel_credentials(credentials: Optional[Union[str, bytes, ChannelCredentials]]) -> ChannelCredentials:
+        """
+        Convert given argument to grpc channel credentials.
+
+        Args:
+            credentials: Optional[Union[str, bytes, ChannelCredentials]]: grpc.ChannelCredentials, the path to
+                certificate file or bytes of the certificate to use with an SSL-enabled Channel.
+
+        Returns:
+            ChannelCredentials: converted channel credential.
+        """
+        if credentials and not isinstance(credentials, ChannelCredentials):
+            if os.path.isfile(credentials):
+                with open(credentials, 'rb') as f:
+                    credentials = f.read()
+            credentials = grpc.ssl_channel_credentials(credentials)
+        return credentials
 
     @property
     def port(self) -> int:
@@ -159,6 +183,16 @@ class UDEClient(AbstractSideChannel):
             ChannelCredentials: the grpc.ChannelCredentials.
         """
         return self._credentials
+
+    @property
+    def auth_key(self) -> str:
+        """
+        Return the authentication key
+
+        Returns:
+            str: the channel authentication key
+        """
+        return self._auth_key
 
     @property
     def timeout(self) -> float:
@@ -252,18 +286,10 @@ class UDEClient(AbstractSideChannel):
                     try_count += 1
                     if try_count > max_retry_attempts:
                         raise ex
-                    # TODO: logging with print is not a good practice, but this package can be used in
-                    #    ROS, regular python, and notebook environments where their logging mechanisms are
-                    #    different, so I need to figure out what is right mechanism to log for different
-                    #    environments. But since print work throughout all environments, I will stick with
-                    #    print for now.
                     log_msg_format = "[UDEClient] Failed on side_channel_stream, Retry count: {0}/{1}: {2}"
-                    # logging.info(log_msg_format.format(str(try_count),
-                    #                                    str(max_retry_attempts),
-                    #                                    ex))
-                    print(log_msg_format.format(str(try_count),
-                                                str(max_retry_attempts),
-                                                ex))
+                    logging.info(log_msg_format.format(str(try_count),
+                                                       str(max_retry_attempts),
+                                                       ex))
                     self._reset_channel()
 
                 if self._should_stop_receiver_thread:
@@ -289,21 +315,33 @@ class UDEClient(AbstractSideChannel):
         with self._lock:
             try:
                 if self._channel is not None:
-                    print("[UDEClient] Resetting grpc.io channel...")
+                    logging.info("[UDEClient] Resetting grpc.io channel...")
                     self._channel.close()
             except Exception as ex:
-                print("[UDEClient] Ignoring: Exception raised from channel.close during reset_channel: {}".format(ex))
+                logging.info("[UDEClient] Ignoring: Exception raised from channel.close during reset_channel: {}".format(ex))
             finally:
-                if self._credentials:
+                if self._credentials and self._auth_key:
+                    logging.debug("[UDEClient] Connecting secure channel with credentials and auth_key...")
+                    metadata_call_credentials = grpc.metadata_call_credentials(GrpcAuth(key=self._auth_key))
+                    self._channel = grpc.secure_channel(self._address + ':' + str(self._port),
+                                                        credentials=grpc.composite_channel_credentials(
+                                                            self._credentials,
+                                                            metadata_call_credentials),
+                                                        options=self._options,
+                                                        compression=self._compression)
+                elif self._credentials:
+                    logging.debug("[UDEClient] Connecting secure channel with credentials...")
                     self._channel = grpc.secure_channel(self._address + ':' + str(self._port),
                                                         credentials=self._credentials,
                                                         options=self._options,
                                                         compression=self._compression)
                 else:
+                    logging.debug("[UDEClient] Connecting insecure channel...")
                     self._channel = grpc.insecure_channel(self._address + ':' + str(self._port),
                                                           options=self._options,
                                                           compression=self._compression)
                 self._conn = rpc.UDEProtoStub(self._channel)
+                logging.debug("[UDEClient] Connection established!")
 
     def _call_with_retry(self,
                          rpc_func_name: RpcFuncNames,
@@ -337,23 +375,11 @@ class UDEClient(AbstractSideChannel):
                         continue
                 try_count += 1
                 if try_count > max_retry_attempts:
-                    # TODO: logging with print is not a good practice, but this package can be used in
-                    #    ROS, regular python, and notebook environments where their logging mechanisms are
-                    #    different, so I need to figure out what is right mechanism to log for different environments.
-                    #    But for now, since print work throughout all environments, I will stick with print for now.
-                    # logging.error("[UDEClient] RPC call failed with {} retries".format(str(max_retry_attempts)))
-                    print("[UDEClient] RPC call failed with {} retries".format(str(max_retry_attempts)))
+                    logging.error("[UDEClient] RPC call failed with {} retries".format(str(max_retry_attempts)))
                     raise ex
-                # TODO: logging with print is not a good practice, but this package can be used in
-                #    ROS, regular python, and notebook environments where their logging mechanisms are
-                #    different, so I need to figure out what is right mechanism to log for different environments.
-                #    But for now, since print work throughout all environments, I will stick with print for now.
-                # logging.info("[UDEClient] RPC call failed, Retry count: {0}/{1}: {2}".format(str(try_count),
-                #                                                                              str(max_retry_attempts),
-                #                                                                              ex))
-                print("[UDEClient] RPC call failed, Retry count: {0}/{1}: {2}".format(str(try_count),
-                                                                                      str(max_retry_attempts),
-                                                                                      ex))
+                logging.info("[UDEClient] RPC call failed, Retry count: {0}/{1}: {2}".format(str(try_count),
+                                                                                             str(max_retry_attempts),
+                                                                                             ex))
                 self._reset_channel()
 
     def _send(self, key: str, value: SideChannelData, store_local: bool = False) -> None:

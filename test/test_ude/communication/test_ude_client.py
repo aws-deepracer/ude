@@ -18,6 +18,7 @@ from unittest.mock import patch, MagicMock
 
 import numpy as np
 import grpc
+import os
 
 from ude.communication.ude_client import UDEClient, RpcFuncNames
 from ude import UDE_COMM_DEFAULT_PORT
@@ -70,14 +71,18 @@ class UDEClientTest(TestCase):
         assert client.compression == grpc.Compression.NoCompression
         assert client.credentials is None
 
-        with patch("grpc.secure_channel") as secure_channel_mock:
+        with patch("grpc.secure_channel") as secure_channel_mock, \
+             patch("grpc.composite_channel_credentials") as composite_channel_credential_mock, \
+             patch("grpc.ssl_channel_credentials") as ssl_channel_credential_mock:
             custom_option = [('test', 42)]
-            credentials = MagicMock()
+            credentials = "credential"
+            auth_key = "my_pass"
             # Confirm address and port are configured as given.
             client2 = UDEClient(address, port=5005,
                                 options=custom_option,
                                 compression=grpc.Compression.Gzip,
                                 credentials=credentials,
+                                auth_key=auth_key,
                                 timeout=5.0,
                                 max_retry_attempts=10)
             assert client2.port == 5005
@@ -86,7 +91,8 @@ class UDEClientTest(TestCase):
             assert client2.timeout == 5.0
             assert client2.max_retry_attempts == 10
             assert client2.options == self._default_options + custom_option
-            assert client2.credentials == credentials
+            assert client2.credentials == ssl_channel_credential_mock.return_value
+            assert client2.auth_key == auth_key
 
             client2.timeout = 7.0
             client2.max_retry_attempts = 6
@@ -133,9 +139,11 @@ class UDEClientTest(TestCase):
                                                       compression=grpc.Compression.NoCompression)
 
     def test_ude_client_creation_with_credentials(self, ude_proto_stub_mock, insecure_channel_mock, thread_mock):
-        with patch("grpc.secure_channel") as secure_channel_mock:
+        with patch("grpc.secure_channel") as secure_channel_mock, \
+             patch("grpc.composite_channel_credentials") as composite_channel_credential_mock, \
+             patch("grpc.ssl_channel_credentials") as ssl_channel_credential_mock:
             address = "localhost"
-            credentials = MagicMock()
+            credentials = "credential"
             client = UDEClient(address,
                                credentials=credentials)
 
@@ -146,12 +154,85 @@ class UDEClientTest(TestCase):
             assert client.max_retry_attempts == 5
             assert client.compression == grpc.Compression.NoCompression
             assert client.options == self._default_options
-            assert client.credentials == credentials
+            assert client.credentials == ssl_channel_credential_mock.return_value
 
             secure_channel_mock.assert_called_once_with(address + ":" + str(UDE_COMM_DEFAULT_PORT),
-                                                        credentials=credentials,
+                                                        credentials=client.credentials,
                                                         options=self._default_options,
                                                         compression=grpc.Compression.NoCompression)
+
+    def test_ude_client_creation_with_credentials_and_auth_key(self, ude_proto_stub_mock, insecure_channel_mock, thread_mock):
+        with patch("grpc.secure_channel") as secure_channel_mock, \
+             patch("grpc.composite_channel_credentials") as composite_channel_credential_mock, \
+             patch("grpc.metadata_call_credentials") as metadata_call_credentials_mock, \
+             patch("grpc.ssl_channel_credentials") as ssl_channel_credentials_mock, \
+             patch("ude.communication.ude_client.GrpcAuth") as grpc_auth_mock:
+            address = "localhost"
+            credentials = "credential"
+            auth_key = "my_pass"
+            client = UDEClient(address,
+                               credentials=credentials,
+                               auth_key=auth_key)
+
+            # Confirm port is configured with default port if not provided.
+            assert client.port == UDE_COMM_DEFAULT_PORT
+            assert client.address == address
+            assert client.timeout == 10.0
+            assert client.max_retry_attempts == 5
+            assert client.compression == grpc.Compression.NoCompression
+            assert client.options == self._default_options
+            assert client.credentials == ssl_channel_credentials_mock.return_value
+            assert client.auth_key == auth_key
+
+            assert not isinstance(credentials, grpc.ChannelCredentials)
+
+
+            grpc_auth_mock.assert_called_once_with(key=auth_key)
+            metadata_call_credentials_mock.assert_called_once_with(grpc_auth_mock.return_value)
+            composite_channel_credential_mock.assert_called_once_with(client.credentials,
+                                                                      metadata_call_credentials_mock.return_value)
+            secure_channel_mock.assert_called_once_with(address + ":" + str(UDE_COMM_DEFAULT_PORT),
+                                                        credentials=composite_channel_credential_mock.return_value,
+                                                        options=self._default_options,
+                                                        compression=grpc.Compression.NoCompression)
+            ssl_channel_credentials_mock.assert_called_once_with(credentials)
+
+    def test_to_channel_credentials_file_path(self, ude_proto_stub_mock, insecure_channel_mock, thread_mock):
+        with patch("grpc.ssl_channel_credentials") as ssl_channel_credentials_mock, \
+                patch("builtins.open") as open_mock, \
+                patch("os.path.isfile") as is_file_mock:
+            credentials = "/file_path"
+            is_file_mock.return_value = True
+            channel_credential = UDEClient.to_channel_credentials(credentials)
+            open_mock.assert_called_once_with(credentials, 'rb')
+            open_mock.return_value.__enter__.return_value.read.assert_called_once()
+            file_data_mock = open_mock.return_value.__enter__.return_value.read.return_value
+            ssl_channel_credentials_mock.assert_called_once_with(file_data_mock)
+            assert channel_credential == ssl_channel_credentials_mock.return_value
+
+    def test_to_channel_credentials_bytes(self, ude_proto_stub_mock, insecure_channel_mock, thread_mock):
+        with patch("grpc.ssl_channel_credentials") as ssl_channel_credentials_mock, \
+             patch("builtins.open") as open_mock, \
+             patch("os.path.isfile") as is_file_mock:
+            credentials = "bytes_array"
+            is_file_mock.return_value = False
+            channel_credential = UDEClient.to_channel_credentials(credentials)
+            open_mock.assert_not_called()
+            open_mock.return_value.read.assert_not_called()
+            ssl_channel_credentials_mock.assert_called_once_with(credentials)
+            assert channel_credential == ssl_channel_credentials_mock.return_value
+
+    def test_to_channel_credentials_channel_credentials(self, ude_proto_stub_mock, insecure_channel_mock, thread_mock):
+        with patch("grpc.ssl_channel_credentials") as ssl_channel_credentials_mock, \
+             patch("builtins.open") as open_mock, \
+             patch("os.path.isfile") as is_file_mock:
+            credentials = grpc.ChannelCredentials(MagicMock())
+            is_file_mock.return_value = False
+            channel_credential = UDEClient.to_channel_credentials(credentials)
+
+            open_mock.assert_not_called()
+
+            assert credentials == channel_credential
 
     def test_on_message_received_bool(self, ude_proto_stub_mock, insecure_channel_mock, thread_mock):
 
