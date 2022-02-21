@@ -1,10 +1,10 @@
 ## Unified Distributed Environment (UDE)
 
-UDE is an open source Python library for virtualizing reinforcement learning environments. It provides a uniform API to control the flow and life-cycle of the environments, and supports seamless offload of simulation environments.
+UDE is an open-source Python library for virtualizing reinforcement learning environments. It provides a uniform API to control the flow and life-cycle of the environments, and supports seamless offload of simulation environments.
 
 ## Installation
 
-To install UDE toolkit, use `pip install ude`.
+To install the UDE toolkit, use `pip install ude`.
 
 Python 3.6, 3.7, 3.8, and 3.9 are supported on Linux, Windows, and macOS.
 
