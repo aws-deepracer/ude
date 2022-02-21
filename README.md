@@ -4,7 +4,7 @@ UDE is an open-source Python library for virtualizing reinforcement learning env
 
 ## Installation
 
-To install the UDE toolkit, use `pip install ude`.
+To install the UDE toolkit, run the `pip install ude`command.
 
 Python 3.6, 3.7, 3.8, and 3.9 are supported on Linux, Windows, and macOS.
 
