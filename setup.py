@@ -60,6 +60,7 @@ setup_args = {
     "package_dir": {"": "."},
     "description": "UDE: A reinforcement learning environment virtualization framework.",
     "long_description": read("README.md"),
+    "long_description_content_type": 'text/markdown',
     "author": "Amazon Web Services",
     "url": "https://github.com/aws-deepracer/ude",
     "license": "Apache License 2.0",
