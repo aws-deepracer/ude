@@ -153,7 +153,7 @@ class UDEEnvironment(UDEEnvironmentInterface):
             obs, reward, done, last_action, info = self.env.step(action_dict=action_dict)
             if self.is_local:
                 if self.reset_mode == UDEResetMode.AUTO and self._game_over_cond(done.values()):
-                    self.reset()
+                    obs = self.reset()
             return obs, reward, done, last_action, info
 
     def reset(self) -> MultiAgentDict:

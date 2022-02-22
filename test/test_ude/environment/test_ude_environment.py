@@ -92,6 +92,7 @@ class UDEEnvironmentTest(TestCase):
         action_dict = {"agent": 1}
 
         next_state = {"agent": "next_state"}
+        reset_next_state = {"agent": "reset_next_state"}
         done = {"agent": True}
         reward = {"agent": 42}
         info = {}
@@ -101,11 +102,13 @@ class UDEEnvironmentTest(TestCase):
                      action_dict,
                      info)
         ude_env_adapter_mock.return_value.step.return_value = step_dict
+        ude_env_adapter_mock.return_value.reset.return_value = reset_next_state
         env = UDEEnvironment(ude_env_adapter=ude_env_adapter_mock(),
                              reset_mode=UDEResetMode.AUTO)
         ret_obs, ret_reward, ret_done, ret_last_action, ret_info = env.step(action_dict=action_dict)
 
-        assert ret_obs == next_state
+        assert ret_obs != next_state
+        assert ret_obs == reset_next_state
         assert ret_reward == reward
         assert ret_done == done
         assert ret_last_action == action_dict
@@ -204,6 +207,8 @@ class UDEEnvironmentTest(TestCase):
 
         next_state = {"agent1": "next_state1",
                       "agent2": "next_state2"}
+        reset_next_state = {"agent1": "reset_next_state1",
+                            "agent2": "reset_next_state2"}
         done = {"agent1": True,
                 "agent2": True}
         reward = {"agent1": 42,
@@ -215,12 +220,14 @@ class UDEEnvironmentTest(TestCase):
                      action_dict,
                      info)
         ude_env_adapter_mock.return_value.step.return_value = step_dict
+        ude_env_adapter_mock.return_value.reset.return_value = reset_next_state
         env = UDEEnvironment(ude_env_adapter=ude_env_adapter_mock(),
                              reset_mode=UDEResetMode.AUTO,
                              game_over_cond=all)
         ret_obs, ret_reward, ret_done, ret_last_action, ret_info = env.step(action_dict=action_dict)
 
-        assert ret_obs == next_state
+        assert ret_obs != next_state
+        assert ret_obs == reset_next_state
         assert ret_reward == reward
         assert ret_done == done
         assert ret_last_action == action_dict
@@ -234,6 +241,8 @@ class UDEEnvironmentTest(TestCase):
 
         next_state = {"agent1": "next_state1",
                       "agent2": "next_state2"}
+        reset_next_state = {"agent1": "reset_next_state1",
+                            "agent2": "reset_next_state2"}
         done = {"agent1": True,
                 "agent2": False}
         reward = {"agent1": 42,
@@ -245,12 +254,14 @@ class UDEEnvironmentTest(TestCase):
                      action_dict,
                      info)
         ude_env_adapter_mock.return_value.step.return_value = step_dict
+        ude_env_adapter_mock.return_value.reset.return_value = reset_next_state
         env = UDEEnvironment(ude_env_adapter=ude_env_adapter_mock(),
                              reset_mode=UDEResetMode.AUTO,
                              game_over_cond=any)
         ret_obs, ret_reward, ret_done, ret_last_action, ret_info = env.step(action_dict=action_dict)
 
-        assert ret_obs == next_state
+        assert ret_obs != next_state
+        assert ret_obs == reset_next_state
         assert ret_reward == reward
         assert ret_done == done
         assert ret_last_action == action_dict
@@ -264,6 +275,8 @@ class UDEEnvironmentTest(TestCase):
 
         next_state = {"agent1": "next_state1",
                       "agent2": "next_state2"}
+        reset_next_state = {"agent1": "reset_next_state1",
+                            "agent2": "reset_next_state2"}
         done = {"agent1": True,
                 "agent2": True}
         reward = {"agent1": 42,
@@ -275,12 +288,14 @@ class UDEEnvironmentTest(TestCase):
                      action_dict,
                      info)
         ude_env_adapter_mock.return_value.step.return_value = step_dict
+        ude_env_adapter_mock.return_value.reset.return_value = reset_next_state
         env = UDEEnvironment(ude_env_adapter=ude_env_adapter_mock(),
                              reset_mode=UDEResetMode.AUTO,
                              game_over_cond=any)
         ret_obs, ret_reward, ret_done, ret_last_action, ret_info = env.step(action_dict=action_dict)
 
-        assert ret_obs == next_state
+        assert ret_obs != next_state
+        assert ret_obs == reset_next_state
         assert ret_reward == reward
         assert ret_done == done
         assert ret_last_action == action_dict
