@@ -27,7 +27,11 @@ MultiAgentDict = Dict[AgentID, Any]
 # - observation(s), reward(s), done(s), last action(s), info
 UDEStepResult = Tuple[MultiAgentDict, MultiAgentDict,
                       MultiAgentDict, MultiAgentDict,
-                      MultiAgentDict]
+                      Dict]
+
+# UDE Reset Result type:
+# - observation(s), info
+UDEResetResult = Tuple[MultiAgentDict, Dict]
 
 # Side Channel Data type
 SideChannelData = Union[bool, int, float, list, str, bytes]

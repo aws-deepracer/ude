@@ -50,7 +50,7 @@ from ude.side_channels.ude_side_channel import (
     AbstractSideChannel
 )
 import ude.communication.constants as const
-from ude.ude_typing import MultiAgentDict, UDEStepResult, SideChannelData, AgentID
+from ude.ude_typing import MultiAgentDict, UDEStepResult, UDEResetResult, SideChannelData, AgentID
 from ude.exception import (UDEClientError, UDEClientException,
                            UDEServerException,
                            UDECommunicationException,
@@ -128,15 +128,15 @@ class UDEServicerImplementation(UDEProtoServicer):
         try:
             self.validate_msg(request, const.UDEMessageType.EMPTY)
             try:
-                obs = self._server.reset()
+                reset_info = self._server.reset()
             except Exception as ex:
                 traceback.print_exc()
-                obs = UDEEnvException(ex)
+                reset_info = UDEEnvException(ex)
 
-            if obs is None:
+            if reset_info is None:
                 raise UDEServerException(message='server closed',
                                          error_code=500)
-            serialized_obj = self._context.serialize(obs).to_buffer()
+            serialized_obj = self._context.serialize(reset_info).to_buffer()
             msg = UDEMessageProto(header=UDEMessageHeaderProto(status=200),
                                   dataMsg=UDEDataMessageProto(data=bytes(serialized_obj)))
         except Exception as e:
@@ -700,12 +700,12 @@ class UDEServer(SideChannelObserverInterface):
         """
         return self._step_info
 
-    def reset(self) -> MultiAgentDict:
+    def reset(self) -> UDEResetResult:
         """
         Reset the environment.
 
         Returns:
-            MultiAgentDict: first observation in new episode.
+            UDEResetResult: first observation and info in new episode.
         """
         with self._invoke_step_event_lock:
             # Clean up invoke_step thread.

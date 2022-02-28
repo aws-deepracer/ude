@@ -619,17 +619,20 @@ class UDEClientTest(TestCase):
 
     def test_reset(self, ude_proto_stub_mock, insecure_channel_mock, thread_mock):
         next_state = {"agent": "next_state"}
-        serialized_obj = bytes(self._context.serialize(next_state).to_buffer())
-        step_msg = UDEMessageProto(header=UDEMessageHeaderProto(status=200),
+        info = {"info"}
+        reset_result = (next_state, info)
+        serialized_obj = bytes(self._context.serialize(reset_result).to_buffer())
+        reset_msg = UDEMessageProto(header=UDEMessageHeaderProto(status=200),
                                    dataMsg=UDEDataMessageProto(data=serialized_obj))
-        ude_proto_stub_mock.return_value.reset.return_value = step_msg
+        ude_proto_stub_mock.return_value.reset.return_value = reset_msg
 
         address = "localhost"
         client = UDEClient(address)
-        ret_next_state = client.reset()
+        ret_next_state, ret_info = client.reset()
 
         ude_proto_stub_mock.return_value.reset.assert_called_once()
         assert ret_next_state == next_state
+        assert ret_info == info
 
     def test_reset_env_fault(self, ude_proto_stub_mock, insecure_channel_mock, thread_mock):
         exception = Exception("Some Error")

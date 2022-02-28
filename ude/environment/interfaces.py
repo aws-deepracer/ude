@@ -17,7 +17,7 @@
 import abc
 from typing import Dict
 
-from ude.ude_typing import MultiAgentDict, UDEStepResult, AgentID
+from ude.ude_typing import MultiAgentDict, UDEStepResult, UDEResetResult, AgentID
 from ude.side_channels.ude_side_channel import AbstractSideChannel
 
 from gym.spaces.space import Space
@@ -46,13 +46,13 @@ class UDEEnvironmentInterface(ABC):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def reset(self) -> MultiAgentDict:
+    def reset(self) -> UDEResetResult:
         """
         Reset the environment and start new episode.
         Also, returns the first observation for new episode started.
 
         Returns:
-            MultiAgentDict: first observation in new episode.
+            UDEResetResult: first observation and info in new episode.
         """
         raise NotImplementedError()
 

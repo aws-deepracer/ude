@@ -160,12 +160,14 @@ class UDEServicerImplementationTest(TestCase):
                                      emptyMsg=UDEEmptyMessageProto())
 
         next_state = {"agent": "next_state"}
+        info = {"info"}
+        reset_result = (next_state, info)
         # Mock return value from environment step
-        ude_server_mock.return_value.reset.return_value = next_state
+        ude_server_mock.return_value.reset.return_value = reset_result
 
         servicer = UDEServicerImplementation(ude_server_mock())
 
-        serialized_obj = bytes(self._context.serialize(next_state).to_buffer())
+        serialized_obj = bytes(self._context.serialize(reset_result).to_buffer())
         expected_msg = UDEMessageProto(header=UDEMessageHeaderProto(status=200),
                                        dataMsg=UDEDataMessageProto(data=serialized_obj))
 
@@ -1285,18 +1287,21 @@ class UDEServerTest(TestCase):
 
     def test_reset(self, grpc_server_mock, socket_mock):
         next_obs = "next_obs"
+        info = "info"
+        reset_result = (next_obs, info)
         ude_env_mock = MagicMock()
 
-        ude_env_mock.reset.return_value = next_obs
+        ude_env_mock.reset.return_value = reset_result
 
         ude_server = UDEServer(ude_env=ude_env_mock).start()
 
         invoke_step_event_mock = MagicMock()
         ude_server._invoke_step_event = invoke_step_event_mock
 
-        ret_val = ude_server.reset()
+        ret_obs, ret_info = ude_server.reset()
 
-        assert ret_val == next_obs
+        assert ret_obs == next_obs
+        assert ret_info == info
 
         ude_env_mock.reset.assert_called_once()
         invoke_step_event_mock.set.assert_called_once()
@@ -1307,9 +1312,11 @@ class UDEServerTest(TestCase):
 
     def test_reset_with_invoke_step_thread_running(self, grpc_server_mock, socket_mock):
         next_obs = "next_obs"
+        info = {"info"}
+        reset_result = (next_obs, info)
         ude_env_mock = MagicMock()
 
-        ude_env_mock.reset.return_value = next_obs
+        ude_env_mock.reset.return_value = reset_result
 
         ude_server = UDEServer(ude_env=ude_env_mock).start()
 
@@ -1318,9 +1325,10 @@ class UDEServerTest(TestCase):
         ude_server._invoke_step_event = invoke_step_event_mock
         ude_server._invoke_step_thread = invoke_step_thread_mock
 
-        ret_val = ude_server.reset()
+        ret_obs, ret_info = ude_server.reset()
 
-        assert ret_val == next_obs
+        assert ret_obs == next_obs
+        assert ret_info == info
 
         ude_env_mock.reset.assert_called_once()
         invoke_step_event_mock.set.assert_called_once()

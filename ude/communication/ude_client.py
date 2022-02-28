@@ -39,7 +39,7 @@ from ude.ude_objects.ude_data_message_pb2 import (
 
 import ude.communication.constants as const
 from ude.exception import UDEException, UDEServerError, UDEServerException, UDEEnvException
-from ude.ude_typing import MultiAgentDict, UDEStepResult, SideChannelData, AgentID
+from ude.ude_typing import MultiAgentDict, UDEStepResult, UDEResetResult, SideChannelData, AgentID
 from ude.side_channels.ude_side_channel import AbstractSideChannel
 
 from gym.spaces.space import Space
@@ -468,13 +468,13 @@ class UDEClient(AbstractSideChannel):
             self._close()
             raise ex
 
-    def reset(self) -> MultiAgentDict:
+    def reset(self) -> UDEResetResult:
         """
         Reset the Environment and start new episode.
         Also, returns the first observation for new episode started.
 
         Returns:
-            MultiAgentDict: first observation in new episode.
+            UDEResetResult: first observation and info in new episode.
         """
         try:
             self._connect()
@@ -487,10 +487,11 @@ class UDEClient(AbstractSideChannel):
                                              max_retry_attempts=self.max_retry_attempts)
             self.validate_msg(msg=response,
                               expected_msg_type=const.UDEMessageType.DATA)
-            deserialized_obj = self._context.deserialize(response.dataMsg.data)
-            if isinstance(deserialized_obj, UDEEnvException):
-                raise deserialized_obj
-            return cast(MultiAgentDict, deserialized_obj)
+            reset_data = self._context.deserialize(response.dataMsg.data)
+            if isinstance(reset_data, UDEEnvException):
+                raise reset_data
+            obs, info = reset_data
+            return obs, info
         except UDEEnvException:
             raise
         except Exception as ex:

@@ -85,7 +85,7 @@ class UDEToGymWrapper(gym.Env):
         """
         self.game_over = False
         # Reset the state of the environment to an initial state
-        obs = self._ude_env.reset()
+        obs, info = self._ude_env.reset()
         # Return first value of obs
         return list(obs.values())[0]
 

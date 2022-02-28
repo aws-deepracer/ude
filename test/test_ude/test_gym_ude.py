@@ -84,13 +84,15 @@ class UDEToGymWrapperTest(TestCase):
         mock_reset_obs = "new_episode_state"
         mock_reward = 42
         mock_done = True
+        mock_info = {"info"}
 
         step_dict = ({"agent_0": mock_obs},
                      {"agent_0": mock_reward},
                      {"agent_0": mock_done},
                      {"agent_0": action},
-                     {})
-        reset_dict = {"agent_0": mock_reset_obs}
+                     mock_info)
+        reset_dict = ({"agent_0": mock_reset_obs},
+                      {"reset_info"})
         self._ude_env_mock.step.return_value = step_dict
         self._ude_env_mock.reset.return_value = reset_dict
 
@@ -100,7 +102,7 @@ class UDEToGymWrapperTest(TestCase):
         assert obs == mock_obs
         assert reward == mock_reward
         assert done == mock_done
-        assert info == {}
+        assert info == mock_info
         assert ude_gym_wrapper.game_over
 
         new_episode_obs = ude_gym_wrapper.reset()

@@ -19,7 +19,7 @@ from threading import RLock
 
 from gym import Space
 
-from ude.ude_typing import MultiAgentDict, UDEStepResult, AgentID
+from ude.ude_typing import MultiAgentDict, UDEStepResult, UDEResetResult, AgentID
 from ude.side_channels.ude_side_channel import AbstractSideChannel
 from ude.environment.interfaces import (
     UDEEnvironmentInterface,
@@ -153,16 +153,16 @@ class UDEEnvironment(UDEEnvironmentInterface):
             obs, reward, done, last_action, info = self.env.step(action_dict=action_dict)
             if self.is_local:
                 if self.reset_mode == UDEResetMode.AUTO and self._game_over_cond(done.values()):
-                    obs = self.reset()
+                    obs, info = self.reset()
             return obs, reward, done, last_action, info
 
-    def reset(self) -> MultiAgentDict:
+    def reset(self) -> UDEResetResult:
         """
         Reset the environment and start new episode.
         Also, returns the first observation for new episode started.
 
         Returns:
-            MultiAgentDict: first observation in new episode.
+            UDEResetResult: first observation and info in new episode.
         """
         with self._lock:
             return self.env.reset()
