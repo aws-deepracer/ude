@@ -39,7 +39,7 @@ package_name = "ude"
 # Declare minimal set for installation
 required_packages = [
     "setuptools",
-    "numpy>=1.20.0",
+    "numpy>=1.19.5",
     "pyarrow==3.0.0",
     "grpcio>=1.35.0",
     "mypy-protobuf>=2.2",
