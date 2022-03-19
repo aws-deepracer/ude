@@ -16,9 +16,11 @@
 """A class to control custom classes serialization"""
 import threading
 from typing import Union
-
-# https://ray-project.github.io/2017/10/15/fast-python-serialization-with-ray-and-arrow.html
-import pyarrow
+import warnings
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
+    # https://ray-project.github.io/2017/10/15/fast-python-serialization-with-ray-and-arrow.html
+    import pyarrow
 
 from gym.spaces.space import Space
 from gym.spaces.box import Box
