@@ -8,6 +8,21 @@ To install the UDE toolkit, run the `pip install ude`command.
 
 Python 3.6, 3.7, 3.8, and 3.9 are supported on Linux, Windows, and macOS.
 
+## Citation
+
+UDE whitepaper is available at https://arxiv.org/abs/2205.06946.
+If you reference or use UDE in your research, please cite:
+
+```
+@misc{la2022unified,
+      title={Unified Distributed Environment}, 
+      author={Woong Gyu La and Sunil Muralidhara and Lingjie Kong and Pratik Nichat},
+      year={2022},
+      eprint={2205.06946},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG}
+}
+```
 
 ## License
 
