@@ -42,6 +42,7 @@ required_packages = [
     "numpy>=1.19.5",
     "pyarrow==3.0.0",
     "grpcio>=1.35.0",
+    "protobuf<=3.20.1",
     "mypy-protobuf>=2.2",
     "gym>=0.18.0",
 ]
